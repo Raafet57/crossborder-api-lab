@@ -1,0 +1,19 @@
+{
+  "name": "crossborder-api",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Cross-border payments API with multi-network support",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint packages/*/src/**/*.ts",
+    "typecheck": "tsc --build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
