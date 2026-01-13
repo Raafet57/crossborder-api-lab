@@ -52,6 +52,3 @@ npm run dev
 npm test
 ```
 
-## License
-
-MIT
