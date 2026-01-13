@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - AUTH_SECRET=${AUTH_SECRET:-demo_secret_change_in_production}
+      - WEBHOOK_INTERNAL_URL=http://webhook-service:4002
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - POLYGON_RPC_URL=${POLYGON_RPC_URL:-https://rpc-amoy.polygon.technology}
+      - POLYGON_PRIVATE_KEY=${POLYGON_PRIVATE_KEY:-}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - crossborder
+
+  webhook-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    ports:
+      - "4002:4002"
+    environment:
+      - NODE_ENV=development
+      - PORT=4002
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-whsec_demo_secret}
+      - API_GATEWAY_URL=http://api-gateway:4000
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - crossborder
+
+networks:
+  crossborder:
+    driver: bridge
