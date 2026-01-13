@@ -1,0 +1,913 @@
+{
+  "info": {
+    "_postman_id": "d9e3b6de-2e44-4fb6-8a2d-6b6605d5f8d5",
+    "name": "Cross-Border Payments API v2",
+    "description": "Multi-network cross-border payments API supporting stablecoins, card networks, mobile wallets, and tokenized assets.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const authKey = pm.environment.get('authKey') || 'demo_key';",
+          "const correlationId = pm.variables.replaceIn('{{$uuid}}');",
+          "",
+          "pm.request.headers.upsert({ key: 'Authorization', value: `Bearer ${authKey}` });",
+          "pm.request.headers.upsert({ key: 'X-Correlation-Id', value: correlationId });",
+          "pm.environment.set('lastCorrelationId', correlationId);",
+          "",
+          "if (pm.request.method === 'POST') {",
+          "  const idempotencyKey = pm.variables.replaceIn('{{$uuid}}');",
+          "  pm.request.headers.upsert({ key: 'Idempotency-Key', value: idempotencyKey });",
+          "  pm.request.headers.upsert({ key: 'Content-Type', value: 'application/json' });",
+          "  pm.environment.set('lastIdempotencyKey', idempotencyKey);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1 Networks",
+      "item": [
+        {
+          "name": "List Networks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/networks"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Response is an array', function () {",
+                  "  pm.expect(Array.isArray(data)).to.be.true;",
+                  "  pm.expect(data.length).to.be.greaterThan(0);",
+                  "});",
+                  "",
+                  "const network = data[0];",
+                  "pm.test('Network schema keys present', function () {",
+                  "  pm.expect(network).to.have.property('id');",
+                  "  pm.expect(network).to.have.property('name');",
+                  "  pm.expect(network).to.have.property('type');",
+                  "  pm.expect(network).to.have.property('supportedCurrencies');",
+                  "});",
+                  "",
+                  "pm.environment.set('networkId', network.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Network by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/networks/{{networkId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Network id matches', function () {",
+                  "  pm.expect(data.id).to.eql(pm.environment.get('networkId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Payers for Network",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/networks/{{networkId}}/payers"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Response is an array', function () {",
+                  "  pm.expect(Array.isArray(data)).to.be.true;",
+                  "  pm.expect(data.length).to.be.greaterThan(0);",
+                  "});",
+                  "",
+                  "const payer = data[0];",
+                  "pm.test('Payer schema keys present', function () {",
+                  "  pm.expect(payer).to.have.property('id');",
+                  "  pm.expect(payer).to.have.property('networkId');",
+                  "  pm.expect(payer).to.have.property('country');",
+                  "  pm.expect(payer).to.have.property('currencyPairs');",
+                  "  pm.expect(payer).to.have.property('requiredFields');",
+                  "});",
+                  "",
+                  "pm.environment.set('payerId', payer.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 Quotes",
+      "item": [
+        {
+          "name": "Create Quote",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"networkId\": \"{{networkId}}\",\n  \"sourceCurrency\": \"USD\",\n  \"destCurrency\": \"USDC\",\n  \"amount\": 100,\n  \"amountType\": \"SOURCE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/quotes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Quote schema keys present', function () {",
+                  "  ['id','networkId','sourceCurrency','destCurrency','sourceAmount','destAmount','fxRate','fee','expiresAt'].forEach(function (key) {",
+                  "    pm.expect(data).to.have.property(key);",
+                  "  });",
+                  "});",
+                  "",
+                  "pm.environment.set('quoteId', data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Quote",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/quotes/{{quoteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Quote id matches', function () {",
+                  "  pm.expect(data.id).to.eql(pm.environment.get('quoteId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 Payments",
+      "item": [
+        {
+          "name": "Create Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quoteId\": \"{{quoteId}}\",\n  \"payerId\": \"{{payerId}}\",\n  \"externalId\": \"EXT-{{$timestamp}}\",\n  \"sender\": {\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\"\n  },\n  \"receiver\": {\n    \"firstName\": \"Jane\",\n    \"lastName\": \"Smith\",\n    \"walletAddress\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f...\"\n  },\n  \"purpose\": \"PAYMENT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/payments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Payment schema keys present', function () {",
+                  "  ['id','quoteId','payerId','networkId','status','sender','receiver','purpose','createdAt'].forEach(function (key) {",
+                  "    pm.expect(data).to.have.property(key);",
+                  "  });",
+                  "});",
+                  "",
+                  "pm.test('quote_id matches', function () {",
+                  "  pm.expect(data.quoteId).to.eql(pm.environment.get('quoteId'));",
+                  "});",
+                  "",
+                  "pm.environment.set('paymentId', data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/payments/{{paymentId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Payment id matches', function () {",
+                  "  pm.expect(data.id).to.eql(pm.environment.get('paymentId'));",
+                  "});",
+                  "",
+                  "pm.environment.set('paymentStatus', data.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/payments/{{paymentId}}/confirm"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Payment id matches', function () {",
+                  "  pm.expect(data.id).to.eql(pm.environment.get('paymentId'));",
+                  "});",
+                  "",
+                  "pm.test('Status updated', function () {",
+                  "  pm.expect(['SUBMITTED','PROCESSING','CONFIRMED','COMPLETED']).to.include(data.status);",
+                  "});",
+                  "",
+                  "pm.environment.set('paymentStatus', data.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"User requested cancellation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/payments/{{paymentId}}/cancel"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx or 4xx (already processed)', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/payments/{{paymentId}}/events"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Response is an array', function () {",
+                  "  pm.expect(Array.isArray(data)).to.be.true;",
+                  "});",
+                  "",
+                  "if (data.length > 0) {",
+                  "  pm.test('Event schema keys present', function () {",
+                  "    const event = data[0];",
+                  "    pm.expect(event).to.have.property('type');",
+                  "    pm.expect(event).to.have.property('timestamp');",
+                  "    pm.expect(event).to.have.property('data');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 Webhooks",
+      "item": [
+        {
+          "name": "Register Webhook",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://webhook.site/your-unique-id\",\n  \"events\": [\"payment.created\", \"payment.completed\", \"payment.failed\"],\n  \"secret\": \"your-webhook-secret\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/webhooks"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Webhook schema keys present', function () {",
+                  "  pm.expect(data).to.have.property('id');",
+                  "  pm.expect(data).to.have.property('url');",
+                  "  pm.expect(data).to.have.property('events');",
+                  "});",
+                  "",
+                  "pm.environment.set('webhookId', data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Webhooks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/webhooks"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Response is an array', function () {",
+                  "  pm.expect(Array.isArray(data)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Webhook",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/v1/webhooks/{{webhookId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5 Flows",
+      "item": [
+        {
+          "name": "Stablecoin Happy Path",
+          "item": [
+            {
+              "name": "1. Get Polygon Network",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/v1/networks/polygon-usdc"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "pm.environment.set('networkId', 'polygon-usdc');"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Get Payer",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/v1/networks/polygon-usdc/payers"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "if (data.length > 0) {",
+                      "  pm.environment.set('payerId', data[0].id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Create Quote",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"networkId\": \"polygon-usdc\",\n  \"sourceCurrency\": \"USD\",\n  \"destCurrency\": \"USDC\",\n  \"amount\": 50,\n  \"amountType\": \"SOURCE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/quotes"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "pm.environment.set('quoteId', data.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. Create Payment",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quoteId\": \"{{quoteId}}\",\n  \"payerId\": \"{{payerId}}\",\n  \"externalId\": \"STABLECOIN-{{$timestamp}}\",\n  \"sender\": {\n    \"firstName\": \"Alice\",\n    \"lastName\": \"Sender\"\n  },\n  \"receiver\": {\n    \"firstName\": \"Bob\",\n    \"lastName\": \"Receiver\",\n    \"walletAddress\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f12345\"\n  },\n  \"purpose\": \"PAYMENT\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/payments"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "pm.environment.set('paymentId', data.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "5. Confirm Payment",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/payments/{{paymentId}}/confirm"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "pm.environment.set('paymentStatus', data.status);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "6. Check Events",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/v1/payments/{{paymentId}}/events"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "pm.test('Has events', function () {",
+                      "  pm.expect(data.length).to.be.greaterThan(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Card Payment (Stripe)",
+          "item": [
+            {
+              "name": "1. Create Quote",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"networkId\": \"stripe\",\n  \"sourceCurrency\": \"USD\",\n  \"destCurrency\": \"USD\",\n  \"amount\": 25,\n  \"amountType\": \"SOURCE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/quotes"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "pm.environment.set('quoteId', data.id);",
+                      "pm.environment.set('networkId', 'stripe');"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Get Stripe Payer",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/v1/networks/stripe/payers"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "if (data.length > 0) {",
+                      "  pm.environment.set('payerId', data[0].id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Create Payment",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quoteId\": \"{{quoteId}}\",\n  \"payerId\": \"{{payerId}}\",\n  \"externalId\": \"CARD-{{$timestamp}}\",\n  \"sender\": {\n    \"firstName\": \"Card\",\n    \"lastName\": \"Holder\",\n    \"email\": \"cardholder@example.com\"\n  },\n  \"receiver\": {\n    \"firstName\": \"Merchant\",\n    \"lastName\": \"Account\"\n  },\n  \"purpose\": \"PAYMENT\",\n  \"metadata\": {\n    \"cardNumber\": \"4242424242424242\",\n    \"expMonth\": 12,\n    \"expYear\": 2027,\n    \"cvc\": \"123\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/payments"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "pm.environment.set('paymentId', data.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. Confirm Payment",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/payments/{{paymentId}}/confirm"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mobile Wallet (M-Pesa)",
+          "item": [
+            {
+              "name": "1. Create Quote",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"networkId\": \"mpesa\",\n  \"sourceCurrency\": \"USD\",\n  \"destCurrency\": \"KES\",\n  \"amount\": 100,\n  \"amountType\": \"SOURCE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/quotes"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "pm.environment.set('quoteId', data.id);",
+                      "pm.environment.set('networkId', 'mpesa');"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Get M-Pesa Payer",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/v1/networks/mpesa/payers"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "if (data.length > 0) {",
+                      "  pm.environment.set('payerId', data[0].id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Create Payment",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quoteId\": \"{{quoteId}}\",\n  \"payerId\": \"{{payerId}}\",\n  \"externalId\": \"MPESA-{{$timestamp}}\",\n  \"sender\": {\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\"\n  },\n  \"receiver\": {\n    \"firstName\": \"James\",\n    \"lastName\": \"Kamau\",\n    \"phone\": \"+254700123456\"\n  },\n  \"purpose\": \"REMITTANCE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/payments"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "pm.environment.set('paymentId', data.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. Confirm Payment",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": "{{baseUrl}}/v1/payments/{{paymentId}}/confirm"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('2xx', function () {",
+                      "  pm.expect(pm.response.code).to.be.within(200, 299);",
+                      "});",
+                      "const data = pm.response.json();",
+                      "// M-Pesa payments may be PENDING_USER_ACTION",
+                      "pm.environment.set('paymentStatus', data.status);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

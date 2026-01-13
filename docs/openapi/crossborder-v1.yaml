@@ -1,0 +1,597 @@
+openapi: 3.1.0
+info:
+  title: Cross-Border Payments API
+  version: 1.0.0
+  description: |
+    Production-grade cross-border payments API supporting multiple payment networks:
+    stablecoins, card networks, mobile wallets, and tokenized assets.
+  contact:
+    name: API Support
+    url: https://github.com/Raafet57/crossborder-api-lab
+
+servers:
+  - url: http://localhost:4000
+    description: API Gateway (local)
+  - url: http://localhost:4002
+    description: Webhook Service (local)
+
+tags:
+  - name: Networks
+    description: Payment network discovery
+  - name: Quotes
+    description: FX quote management
+  - name: Payments
+    description: Payment lifecycle
+  - name: Webhooks
+    description: Webhook subscriptions
+
+security:
+  - bearerAuth: []
+  - apiKey: []
+
+paths:
+  /v1/networks:
+    get:
+      tags: [Networks]
+      operationId: listNetworks
+      summary: List available payment networks
+      responses:
+        '200':
+          description: List of networks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Network'
+
+  /v1/networks/{networkId}/payers:
+    get:
+      tags: [Networks]
+      operationId: listPayers
+      summary: List payers for a network
+      parameters:
+        - name: networkId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of payers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payer'
+
+  /v1/quotes:
+    post:
+      tags: [Quotes]
+      operationId: createQuote
+      summary: Create FX quote
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuoteRequest'
+      responses:
+        '201':
+          description: Quote created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+
+  /v1/quotes/{quoteId}:
+    get:
+      tags: [Quotes]
+      operationId: getQuote
+      summary: Get quote details
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Quote details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+
+  /v1/payments:
+    post:
+      tags: [Payments]
+      operationId: createPayment
+      summary: Create payment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /v1/payments/{paymentId}:
+    get:
+      tags: [Payments]
+      operationId: getPayment
+      summary: Get payment status
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /v1/payments/{paymentId}/confirm:
+    post:
+      tags: [Payments]
+      operationId: confirmPayment
+      summary: Confirm payment for execution
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /v1/payments/{paymentId}/cancel:
+    post:
+      tags: [Payments]
+      operationId: cancelPayment
+      summary: Cancel payment
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /v1/payments/{paymentId}/events:
+    get:
+      tags: [Payments]
+      operationId: listPaymentEvents
+      summary: Get payment event history
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentEvent'
+
+  /v1/webhooks:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhooks
+      summary: List webhook subscriptions
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: List of subscriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WebhookSubscription'
+    post:
+      tags: [Webhooks]
+      operationId: createWebhook
+      summary: Create webhook subscription
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebhookRequest'
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSubscription'
+
+  /v1/webhooks/{subscriptionId}:
+    get:
+      tags: [Webhooks]
+      operationId: getWebhook
+      summary: Get subscription details
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Subscription details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSubscription'
+    put:
+      tags: [Webhooks]
+      operationId: updateWebhook
+      summary: Update subscription
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWebhookRequest'
+      responses:
+        '200':
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSubscription'
+    delete:
+      tags: [Webhooks]
+      operationId: deleteWebhook
+      summary: Delete subscription
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Subscription deleted
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key authentication
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique key for idempotent requests
+    ClientId:
+      name: X-Client-Id
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Client identifier for multi-tenant operations
+
+  schemas:
+    Network:
+      type: object
+      properties:
+        id:
+          type: string
+          example: polygon-usdc
+        name:
+          type: string
+          example: Polygon USDC
+        type:
+          type: string
+          enum: [stablecoin, card, mobile_wallet, tokenized_assets]
+        currencies:
+          type: array
+          items:
+            type: string
+          example: [USDC, USDT]
+        enabled:
+          type: boolean
+      required: [id, name, type, currencies, enabled]
+
+    Payer:
+      type: object
+      properties:
+        id:
+          type: string
+        networkId:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        currency:
+          type: string
+        requiredFields:
+          type: array
+          items:
+            type: string
+      required: [id, networkId, name, country, currency, requiredFields]
+
+    CreateQuoteRequest:
+      type: object
+      properties:
+        networkId:
+          type: string
+        sourceCurrency:
+          type: string
+        destCurrency:
+          type: string
+        amount:
+          type: number
+        amountType:
+          type: string
+          enum: [SOURCE, DESTINATION]
+      required: [networkId, sourceCurrency, destCurrency, amount, amountType]
+
+    Quote:
+      type: object
+      properties:
+        id:
+          type: string
+        networkId:
+          type: string
+        sourceCurrency:
+          type: string
+        destCurrency:
+          type: string
+        sourceAmount:
+          type: number
+        destAmount:
+          type: number
+        fxRate:
+          type: number
+        fee:
+          type: number
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    Party:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: object
+          properties:
+            line1:
+              type: string
+            city:
+              type: string
+            country:
+              type: string
+        bankAccount:
+          type: string
+        walletAddress:
+          type: string
+
+    CreatePaymentRequest:
+      type: object
+      properties:
+        quoteId:
+          type: string
+        payerId:
+          type: string
+        externalId:
+          type: string
+        sender:
+          $ref: '#/components/schemas/Party'
+        receiver:
+          $ref: '#/components/schemas/Party'
+        purpose:
+          type: string
+      required: [quoteId, payerId, sender, receiver]
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+        quoteId:
+          type: string
+        networkId:
+          type: string
+        payerId:
+          type: string
+        externalId:
+          type: string
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        sourceAmount:
+          type: number
+        destAmount:
+          type: number
+        sourceCurrency:
+          type: string
+        destCurrency:
+          type: string
+        sender:
+          $ref: '#/components/schemas/Party'
+        receiver:
+          $ref: '#/components/schemas/Party'
+        networkPaymentId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaymentStatus:
+      type: string
+      enum:
+        - CREATED
+        - QUOTE_LOCKED
+        - COMPLIANCE_CHECK
+        - SUBMITTED
+        - PENDING_USER_ACTION
+        - CONFIRMED
+        - SETTLED
+        - COMPLETED
+        - FAILED
+        - CANCELLED
+
+    PaymentEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        paymentId:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: object
+        correlationId:
+          type: string
+
+    CreateWebhookRequest:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+          example: [payment.created, payment.completed]
+      required: [url, events]
+
+    UpdateWebhookRequest:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+
+    WebhookSubscription:
+      type: object
+      properties:
+        id:
+          type: string
+        clientId:
+          type: string
+        url:
+          type: string
+          format: uri
+        secret:
+          type: string
+          description: Only returned on creation
+        events:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+      required: [code, message]

@@ -5,6 +5,9 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "generate": "openapi-typescript ../docs/openapi/crossborder-v1.yaml -o src/generated.ts"
+    "generate": "openapi-typescript ../../docs/openapi/crossborder-v1.yaml -o src/generated.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^6.7.0"
   }
 }
