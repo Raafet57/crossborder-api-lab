@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CrossBorder — Payment Orchestration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #111111;
+      --bg-tertiary: #1a1a1a;
+      --bg-elevated: #222222;
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-default: rgba(255, 255, 255, 0.1);
+      --text-primary: #fafafa;
+      --text-secondary: rgba(255, 255, 255, 0.6);
+      --text-tertiary: rgba(255, 255, 255, 0.4);
+      --accent-gold: #d4a853;
+      --accent-gold-dim: rgba(212, 168, 83, 0.15);
+      --accent-emerald: #34d399;
+      --accent-emerald-dim: rgba(52, 211, 153, 0.15);
+      --accent-rose: #f43f5e;
+      --accent-rose-dim: rgba(244, 63, 94, 0.15);
+      --accent-blue: #60a5fa;
+      --accent-blue-dim: rgba(96, 165, 250, 0.15);
+      --accent-violet: #a78bfa;
+      --accent-violet-dim: rgba(167, 139, 250, 0.15);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --shadow-subtle: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-elevated: 0 8px 32px rgba(0,0,0,0.5);
+      --transition-fast: 150ms ease;
+      --transition-normal: 250ms ease;
+      --font-display: 'Instrument Serif', Georgia, serif;
+      --font-body: 'DM Sans', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(212, 168, 83, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(167, 139, 250, 0.05), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Layout */
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-subtle);
+      padding: 32px 24px;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 48px;
+    }
+
+    .logo-mark {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-gold), #b8860b);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 20px;
+      color: var(--bg-primary);
+      font-weight: 400;
+    }
+
+    .logo-text {
+      font-family: var(--font-display);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all var(--transition-fast);
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: var(--accent-gold-dim);
+      color: var(--accent-gold);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      opacity: 0.7;
+    }
+
+    .nav-item.active svg {
+      opacity: 1;
+    }
+
+    .nav-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 16px 0;
+    }
+
+    .status-indicator {
+      margin-top: auto;
+      padding: 16px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .status-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .status-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-value {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    /* Main Content */
+    .main {
+      padding: 40px 48px;
+      max-width: 1200px;
+    }
+
+    .page-header {
+      margin-bottom: 40px;
+    }
+
+    .page-title {
+      font-family: var(--font-display);
+      font-size: 42px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .page-subtitle {
+      color: var(--text-secondary);
+      font-size: 15px;
+    }
+
+    /* Sections */
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+    }
+
+    .card-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 100px;
+      background: var(--bg-tertiary);
+      color: var(--text-tertiary);
+    }
+
+    /* Network Grid */
+    .network-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .network-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .network-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.02));
+      pointer-events: none;
+    }
+
+    .network-card:hover {
+      border-color: var(--border-default);
+      transform: translateY(-2px);
+    }
+
+    .network-card.selected {
+      border-color: var(--accent-gold);
+      background: var(--accent-gold-dim);
+    }
+
+    .network-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 20px;
+    }
+
+    .network-icon.stablecoin { background: var(--accent-blue-dim); }
+    .network-icon.card { background: var(--accent-violet-dim); }
+    .network-icon.mobile_wallet { background: var(--accent-emerald-dim); }
+    .network-icon.tokenized_asset { background: var(--accent-gold-dim); }
+
+    .network-name {
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+
+    .network-type {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .network-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .network-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Forms */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group.full-width {
+      grid-column: span 2;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-input {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      color: var(--text-primary);
+      transition: all var(--transition-fast);
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent-gold);
+      background: var(--bg-elevated);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    select.form-input {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 40px;
+    }
+
+    /* Quote Display */
+    .quote-display {
+      background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-elevated));
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .quote-display::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-gold), var(--accent-violet));
+    }
+
+    .quote-label {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    .quote-amount {
+      font-family: var(--font-display);
+      font-size: 48px;
+      font-weight: 400;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .quote-rate {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--bg-secondary);
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .quote-details {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .quote-detail {
+      text-align: center;
+    }
+
+    .quote-detail-label {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .quote-detail-value {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      outline: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-gold), #b8860b);
+      color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(212, 168, 83, 0.3);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-default);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-elevated);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    /* Timeline */
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: var(--border-subtle);
+    }
+
+    .timeline-item {
+      position: relative;
+      padding-bottom: 24px;
+    }
+
+    .timeline-item:last-child {
+      padding-bottom: 0;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: -32px;
+      top: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--bg-tertiary);
+      border: 2px solid var(--border-default);
+    }
+
+    .timeline-item.completed .timeline-dot {
+      background: var(--accent-emerald);
+      border-color: var(--accent-emerald);
+    }
+
+    .timeline-item.active .timeline-dot {
+      background: var(--accent-gold);
+      border-color: var(--accent-gold);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .timeline-item.failed .timeline-dot {
+      background: var(--accent-rose);
+      border-color: var(--accent-rose);
+    }
+
+    .timeline-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .timeline-time {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .timeline-data {
+      margin-top: 8px;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Payment Card */
+    .payment-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .payment-card:hover {
+      border-color: var(--border-default);
+    }
+
+    .payment-card.selected {
+      border-color: var(--accent-gold);
+    }
+
+    .payment-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .payment-id {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .payment-status {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 100px;
+    }
+
+    .payment-status.created { background: var(--accent-blue-dim); color: var(--accent-blue); }
+    .payment-status.processing { background: var(--accent-gold-dim); color: var(--accent-gold); }
+    .payment-status.completed { background: var(--accent-emerald-dim); color: var(--accent-emerald); }
+    .payment-status.failed { background: var(--accent-rose-dim); color: var(--accent-rose); }
+
+    .payment-amount {
+      font-family: var(--font-display);
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    .payment-meta {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-tertiary);
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow-elevated);
+      animation: slideIn 0.3s ease;
+      min-width: 300px;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .toast.success { border-left: 3px solid var(--accent-emerald); }
+    .toast.error { border-left: 3px solid var(--accent-rose); }
+
+    .toast-message {
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border-subtle);
+      border-top-color: var(--accent-gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        display: none;
+      }
+      .main {
+        padding: 24px;
+      }
+      .network-grid,
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      .form-group.full-width {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-mark">C</div>
+        <span class="logo-text">CrossBorder</span>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-section="send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+          </svg>
+          Send Payment
+        </button>
+        <button class="nav-item" data-section="payments">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Payments
+        </button>
+        <button class="nav-item" data-section="networks">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          Networks
+        </button>
+        <div class="nav-divider"></div>
+        <button class="nav-item" data-section="docs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          API Docs
+        </button>
+      </nav>
+
+      <div class="status-indicator">
+        <div class="status-header">
+          <div class="status-dot"></div>
+          <span class="status-label">API Status</span>
+        </div>
+        <div class="status-value">localhost:4000</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- Send Payment Section -->
+      <section id="send" class="section active">
+        <header class="page-header">
+          <h1 class="page-title">Send Payment</h1>
+          <p class="page-subtitle">Create and execute cross-border payments across multiple networks</p>
+        </header>
+
+        <!-- Step 1: Select Network -->
+        <div class="card" id="step-network">
+          <div class="card-header">
+            <span class="card-title">1. Select Network</span>
+            <span class="card-badge">Step 1 of 4</span>
+          </div>
+          <div class="network-grid" id="networks-list">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <!-- Step 2: Create Quote -->
+        <div class="card" id="step-quote" style="opacity: 0.5; pointer-events: none;">
+          <div class="card-header">
+            <span class="card-title">2. Get Quote</span>
+            <span class="card-badge">Step 2 of 4</span>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Source Currency</label>
+              <select class="form-input" id="source-currency">
+                <option value="">Select currency</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Destination Currency</label>
+              <select class="form-input" id="dest-currency">
+                <option value="">Select currency</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Amount</label>
+              <input type="number" class="form-input" id="amount" placeholder="0.00" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">&nbsp;</label>
+              <button class="btn btn-secondary" id="get-quote-btn">Get Quote</button>
+            </div>
+          </div>
+          <div id="quote-result" style="margin-top: 24px; display: none;">
+            <div class="quote-display">
+              <div class="quote-label">You will receive</div>
+              <div class="quote-amount" id="quote-dest-amount">—</div>
+              <div class="quote-rate">
+                <span>Rate:</span>
+                <span id="quote-rate">—</span>
+              </div>
+              <div class="quote-details">
+                <div class="quote-detail">
+                  <div class="quote-detail-label">Fee</div>
+                  <div class="quote-detail-value" id="quote-fee">—</div>
+                </div>
+                <div class="quote-detail">
+                  <div class="quote-detail-label">Expires</div>
+                  <div class="quote-detail-value" id="quote-expires">—</div>
+                </div>
+                <div class="quote-detail">
+                  <div class="quote-detail-label">Quote ID</div>
+                  <div class="quote-detail-value" id="quote-id">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Payment Details -->
+        <div class="card" id="step-details" style="opacity: 0.5; pointer-events: none;">
+          <div class="card-header">
+            <span class="card-title">3. Payment Details</span>
+            <span class="card-badge">Step 3 of 4</span>
+          </div>
+          <div class="form-grid" id="payment-form">
+            <!-- Dynamic fields will be inserted here -->
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary" id="create-payment-btn" disabled>Create Payment</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Confirm -->
+        <div class="card" id="step-confirm" style="opacity: 0.5; pointer-events: none;">
+          <div class="card-header">
+            <span class="card-title">4. Confirm & Send</span>
+            <span class="card-badge">Step 4 of 4</span>
+          </div>
+          <div id="payment-summary">
+            <!-- Payment summary will be shown here -->
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary" id="confirm-payment-btn" disabled>Confirm Payment</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Payments Section -->
+      <section id="payments" class="section">
+        <header class="page-header">
+          <h1 class="page-title">Payments</h1>
+          <p class="page-subtitle">Track and manage your payment history</p>
+        </header>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Recent Payments</span>
+            <button class="btn btn-secondary" id="refresh-payments">Refresh</button>
+          </div>
+          <div id="payments-list">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <p>No payments yet. Create your first payment above.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="payment-detail-card" style="display: none;">
+          <div class="card-header">
+            <span class="card-title">Payment Details</span>
+            <span class="card-badge" id="detail-payment-id">—</span>
+          </div>
+          <div id="payment-timeline">
+            <!-- Timeline will be rendered here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Networks Section -->
+      <section id="networks" class="section">
+        <header class="page-header">
+          <h1 class="page-title">Networks</h1>
+          <p class="page-subtitle">Available payment networks and their configurations</p>
+        </header>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Available Networks</span>
+          </div>
+          <div class="network-grid" id="all-networks-list">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Docs Section -->
+      <section id="docs" class="section">
+        <header class="page-header">
+          <h1 class="page-title">API Documentation</h1>
+          <p class="page-subtitle">Reference for the Cross-Border Payments API</p>
+        </header>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Endpoints</span>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary);">
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+              <span style="color: var(--accent-emerald);">GET</span> /v1/networks
+            </div>
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+              <span style="color: var(--accent-emerald);">GET</span> /v1/networks/:id/payers
+            </div>
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+              <span style="color: var(--accent-gold);">POST</span> /v1/quotes
+            </div>
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+              <span style="color: var(--accent-emerald);">GET</span> /v1/quotes/:id
+            </div>
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+              <span style="color: var(--accent-gold);">POST</span> /v1/payments
+            </div>
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+              <span style="color: var(--accent-emerald);">GET</span> /v1/payments/:id
+            </div>
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+              <span style="color: var(--accent-gold);">POST</span> /v1/payments/:id/confirm
+            </div>
+            <div style="padding: 12px 0;">
+              <span style="color: var(--accent-emerald);">GET</span> /v1/payments/:id/events
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    // API Configuration
+    const API_BASE = 'http://localhost:4000';
+    const API_KEY = 'demo_key';
+
+    // State
+    const state = {
+      networks: [],
+      selectedNetwork: null,
+      currentQuote: null,
+      currentPayment: null,
+      payments: [],
+      requiredFields: { sender: [], receiver: [] }
+    };
+
+    // API Client
+    const api = {
+      async request(method, path, body = null) {
+        const headers = {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json',
+        };
+
+        if (method === 'POST' || method === 'PUT') {
+          headers['Idempotency-Key'] = `idem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        const res = await fetch(`${API_BASE}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : null,
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'API Error');
+        return data;
+      },
+
+      getNetworks: () => api.request('GET', '/v1/networks'),
+      getNetworkPayers: (id) => api.request('GET', `/v1/networks/${id}/payers`),
+      createQuote: (data) => api.request('POST', '/v1/quotes', data),
+      getQuote: (id) => api.request('GET', `/v1/quotes/${id}`),
+      createPayment: (data) => api.request('POST', '/v1/payments', data),
+      getPayment: (id) => api.request('GET', `/v1/payments/${id}`),
+      confirmPayment: (id) => api.request('POST', `/v1/payments/${id}/confirm`),
+      getPaymentEvents: (id) => api.request('GET', `/v1/payments/${id}/events`),
+    };
+
+    // UI Helpers
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span class="toast-message">${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    function formatCurrency(amount, currency) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency || 'USD',
+        minimumFractionDigits: 2,
+      }).format(amount);
+    }
+
+    function formatTime(isoString) {
+      return new Date(isoString).toLocaleString();
+    }
+
+    function getNetworkIcon(type) {
+      const icons = {
+        stablecoin: '◈',
+        card: '▣',
+        mobile_wallet: '◉',
+        tokenized_asset: '◇'
+      };
+      return icons[type] || '○';
+    }
+
+    function enableStep(stepId) {
+      const step = document.getElementById(stepId);
+      step.style.opacity = '1';
+      step.style.pointerEvents = 'auto';
+    }
+
+    function disableStep(stepId) {
+      const step = document.getElementById(stepId);
+      step.style.opacity = '0.5';
+      step.style.pointerEvents = 'none';
+    }
+
+    // Render Functions
+    function renderNetworks(networks, containerId) {
+      const container = document.getElementById(containerId);
+      if (!networks.length) {
+        container.innerHTML = '<div class="empty-state"><p>No networks available</p></div>';
+        return;
+      }
+
+      container.innerHTML = networks.map(n => `
+        <div class="network-card ${state.selectedNetwork?.id === n.id ? 'selected' : ''}" data-network-id="${n.id}">
+          <div class="network-icon ${n.type}">${getNetworkIcon(n.type)}</div>
+          <div class="network-name">${n.name || n.id}</div>
+          <div class="network-type">${n.type.replace('_', ' ')}</div>
+          <div class="network-meta">
+            <span>${(n.supportedCurrencies || []).join(', ')}</span>
+          </div>
+        </div>
+      `).join('');
+
+      // Add click handlers
+      container.querySelectorAll('.network-card').forEach(card => {
+        card.addEventListener('click', () => selectNetwork(card.dataset.networkId));
+      });
+    }
+
+    async function selectNetwork(networkId) {
+      const network = state.networks.find(n => n.id === networkId);
+      if (!network) return;
+
+      state.selectedNetwork = network;
+      state.currentQuote = null;
+      state.currentPayment = null;
+
+      // Update UI
+      renderNetworks(state.networks, 'networks-list');
+      enableStep('step-quote');
+      disableStep('step-details');
+      disableStep('step-confirm');
+      document.getElementById('quote-result').style.display = 'none';
+
+      // Populate currency dropdowns
+      const currencies = network.supportedCurrencies || ['USD'];
+      const sourceSelect = document.getElementById('source-currency');
+      const destSelect = document.getElementById('dest-currency');
+
+      sourceSelect.innerHTML = currencies.map(c => `<option value="${c}">${c}</option>`).join('');
+      destSelect.innerHTML = currencies.map(c => `<option value="${c}">${c}</option>`).join('');
+
+      // Get required fields
+      try {
+        const payers = await api.getNetworkPayers(networkId);
+        state.requiredFields = payers.requiredFields || { sender: [], receiver: [] };
+      } catch (e) {
+        state.requiredFields = { sender: ['firstName', 'lastName'], receiver: ['firstName', 'lastName'] };
+      }
+
+      showToast(`Selected ${network.name || network.id}`);
+    }
+
+    async function getQuote() {
+      const networkId = state.selectedNetwork?.id;
+      const sourceCurrency = document.getElementById('source-currency').value;
+      const destCurrency = document.getElementById('dest-currency').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+
+      if (!networkId || !sourceCurrency || !destCurrency || !amount) {
+        showToast('Please fill all fields', 'error');
+        return;
+      }
+
+      try {
+        const quote = await api.createQuote({
+          networkId,
+          sourceCurrency,
+          destCurrency,
+          sourceAmount: amount,
+        });
+
+        state.currentQuote = quote;
+
+        // Update quote display
+        document.getElementById('quote-result').style.display = 'block';
+        document.getElementById('quote-dest-amount').textContent = formatCurrency(quote.destAmount, quote.destCurrency);
+        document.getElementById('quote-rate').textContent = `1 ${quote.sourceCurrency} = ${quote.fxRate.toFixed(4)} ${quote.destCurrency}`;
+        document.getElementById('quote-fee').textContent = formatCurrency(quote.fee, quote.sourceCurrency);
+        document.getElementById('quote-expires').textContent = formatTime(quote.expiresAt);
+        document.getElementById('quote-id').textContent = quote.id.substring(0, 12) + '...';
+
+        enableStep('step-details');
+        renderPaymentForm();
+        showToast('Quote created successfully');
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function renderPaymentForm() {
+      const form = document.getElementById('payment-form');
+      const fields = [];
+
+      // Sender fields
+      const senderFields = state.requiredFields.sender || ['firstName', 'lastName'];
+      senderFields.forEach(field => {
+        fields.push(`
+          <div class="form-group">
+            <label class="form-label">Sender ${field.replace(/([A-Z])/g, ' $1').trim()}</label>
+            <input type="text" class="form-input" id="sender-${field}" placeholder="${field}">
+          </div>
+        `);
+      });
+
+      // Receiver fields
+      const receiverFields = state.requiredFields.receiver || ['firstName', 'lastName'];
+      receiverFields.forEach(field => {
+        fields.push(`
+          <div class="form-group">
+            <label class="form-label">Receiver ${field.replace(/([A-Z])/g, ' $1').trim()}</label>
+            <input type="text" class="form-input" id="receiver-${field}" placeholder="${field}">
+          </div>
+        `);
+      });
+
+      form.innerHTML = fields.join('');
+      document.getElementById('create-payment-btn').disabled = false;
+    }
+
+    async function createPayment() {
+      if (!state.currentQuote) {
+        showToast('No quote available', 'error');
+        return;
+      }
+
+      const sender = {};
+      const receiver = {};
+
+      (state.requiredFields.sender || ['firstName', 'lastName']).forEach(field => {
+        const input = document.getElementById(`sender-${field}`);
+        if (input) sender[field] = input.value;
+      });
+
+      (state.requiredFields.receiver || ['firstName', 'lastName']).forEach(field => {
+        const input = document.getElementById(`receiver-${field}`);
+        if (input) receiver[field] = input.value;
+      });
+
+      try {
+        const payment = await api.createPayment({
+          quoteId: state.currentQuote.id,
+          sender,
+          receiver,
+        });
+
+        state.currentPayment = payment;
+        state.payments.unshift(payment);
+
+        enableStep('step-confirm');
+        renderPaymentSummary(payment);
+        document.getElementById('confirm-payment-btn').disabled = false;
+        showToast('Payment created successfully');
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function renderPaymentSummary(payment) {
+      const summary = document.getElementById('payment-summary');
+      summary.innerHTML = `
+        <div class="quote-display" style="text-align: left;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <div class="quote-label">Payment ID</div>
+              <div style="font-family: var(--font-mono); font-size: 14px;">${payment.id}</div>
+            </div>
+            <span class="payment-status ${payment.status.toLowerCase()}">${payment.status}</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <div class="quote-label">Amount</div>
+              <div style="font-family: var(--font-display); font-size: 24px;">${formatCurrency(payment.sourceAmount, payment.sourceCurrency)}</div>
+            </div>
+            <div>
+              <div class="quote-label">Receiving</div>
+              <div style="font-family: var(--font-display); font-size: 24px;">${formatCurrency(payment.destAmount, payment.destCurrency)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function confirmPayment() {
+      if (!state.currentPayment) {
+        showToast('No payment to confirm', 'error');
+        return;
+      }
+
+      try {
+        const payment = await api.confirmPayment(state.currentPayment.id);
+        state.currentPayment = payment;
+
+        // Update in payments list
+        const idx = state.payments.findIndex(p => p.id === payment.id);
+        if (idx >= 0) state.payments[idx] = payment;
+
+        renderPaymentSummary(payment);
+        showToast('Payment confirmed!');
+
+        // Reset flow after delay
+        setTimeout(() => {
+          state.currentQuote = null;
+          state.currentPayment = null;
+          disableStep('step-quote');
+          disableStep('step-details');
+          disableStep('step-confirm');
+          document.getElementById('quote-result').style.display = 'none';
+          document.querySelectorAll('.network-card').forEach(c => c.classList.remove('selected'));
+          state.selectedNetwork = null;
+        }, 2000);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function renderPaymentsList() {
+      const container = document.getElementById('payments-list');
+      if (!state.payments.length) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <p>No payments yet. Create your first payment above.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = state.payments.map(p => `
+        <div class="payment-card" data-payment-id="${p.id}">
+          <div class="payment-header">
+            <span class="payment-id">${p.id}</span>
+            <span class="payment-status ${p.status.toLowerCase()}">${p.status}</span>
+          </div>
+          <div class="payment-amount">${formatCurrency(p.sourceAmount, p.sourceCurrency)} → ${formatCurrency(p.destAmount, p.destCurrency)}</div>
+          <div class="payment-meta">${p.networkId} • ${formatTime(p.createdAt)}</div>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('.payment-card').forEach(card => {
+        card.addEventListener('click', () => showPaymentDetail(card.dataset.paymentId));
+      });
+    }
+
+    async function showPaymentDetail(paymentId) {
+      try {
+        const [payment, events] = await Promise.all([
+          api.getPayment(paymentId),
+          api.getPaymentEvents(paymentId),
+        ]);
+
+        document.getElementById('payment-detail-card').style.display = 'block';
+        document.getElementById('detail-payment-id').textContent = paymentId;
+
+        const timeline = document.getElementById('payment-timeline');
+        if (!events.length) {
+          timeline.innerHTML = '<p style="color: var(--text-tertiary);">No events yet</p>';
+          return;
+        }
+
+        timeline.innerHTML = `
+          <div class="timeline">
+            ${events.map((e, i) => `
+              <div class="timeline-item ${i === 0 ? 'active' : 'completed'}">
+                <div class="timeline-dot"></div>
+                <div class="timeline-title">${e.type}</div>
+                <div class="timeline-time">${formatTime(e.timestamp)}</div>
+                ${Object.keys(e.data || {}).length ? `<div class="timeline-data">${JSON.stringify(e.data, null, 2)}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    // Navigation
+    function setupNavigation() {
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const section = item.dataset.section;
+
+          document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+          item.classList.add('active');
+
+          document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+          document.getElementById(section).classList.add('active');
+
+          if (section === 'payments') renderPaymentsList();
+          if (section === 'networks') renderNetworks(state.networks, 'all-networks-list');
+        });
+      });
+    }
+
+    // Initialize
+    async function init() {
+      setupNavigation();
+
+      // Event listeners
+      document.getElementById('get-quote-btn').addEventListener('click', getQuote);
+      document.getElementById('create-payment-btn').addEventListener('click', createPayment);
+      document.getElementById('confirm-payment-btn').addEventListener('click', confirmPayment);
+      document.getElementById('refresh-payments').addEventListener('click', renderPaymentsList);
+
+      // Load networks
+      try {
+        const response = await api.getNetworks();
+        state.networks = response.data || response || [];
+        renderNetworks(state.networks, 'networks-list');
+        renderNetworks(state.networks, 'all-networks-list');
+      } catch (e) {
+        showToast('Failed to load networks. Is the API running?', 'error');
+        document.getElementById('networks-list').innerHTML = `
+          <div class="empty-state">
+            <p>Unable to connect to API at ${API_BASE}</p>
+          </div>
+        `;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
