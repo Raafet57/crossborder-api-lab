@@ -1,20 +1,19 @@
 import type { Config } from 'jest';
 
 const config: Config = {
-  preset: 'ts-jest/presets/default-esm',
+  preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
-    '^@crossborder/core$': '<rootDir>/packages/core/src/index.js',
+    '^@crossborder/core$': '<rootDir>/packages/core/src/index.ts',
     '^@crossborder/core/(.*)$': '<rootDir>/packages/core/src/$1',
-    '^@crossborder/network-adapters$': '<rootDir>/packages/network-adapters/src/index.js',
-    '^@crossborder/api-gateway$': '<rootDir>/packages/api-gateway/src/index.js',
-    '^@crossborder/sdk$': '<rootDir>/packages/sdk/src/index.js',
+    '^@crossborder/network-adapters$': '<rootDir>/packages/network-adapters/src/index.ts',
+    '^@crossborder/api-gateway$': '<rootDir>/packages/api-gateway/src/index.ts',
+    '^@crossborder/sdk$': '<rootDir>/packages/sdk/src/index.ts',
   },
-  extensionsToTreatAsEsm: ['.ts'],
   transform: {
-    '^.+\\.ts$': ['ts-jest', { useESM: true }],
+    '^.+\\.ts$': 'ts-jest',
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   collectCoverageFrom: [

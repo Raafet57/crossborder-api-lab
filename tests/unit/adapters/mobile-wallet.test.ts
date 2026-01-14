@@ -1,122 +1,233 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { MPesaAdapter, GCashAdapter } from '@crossborder/network-adapters';
+import { MPesaMockAdapter, GCashMockAdapter } from '@crossborder/network-adapters';
 
-describe('MPesaAdapter', () => {
-  let adapter: MPesaAdapter;
+describe('MPesaMockAdapter', () => {
+  let adapter: MPesaMockAdapter;
 
   beforeEach(() => {
-    adapter = new MPesaAdapter({
-      simulatedDelayMs: 100,
-      failureRate: 0,
+    adapter = new MPesaMockAdapter();
+  });
+
+  describe('config', () => {
+    it('has correct network type', () => {
+      expect(adapter.config.type).toBe('mobile_wallet');
+    });
+
+    it('supports USD to KES', () => {
+      expect(adapter.config.supportedCurrencies).toContainEqual({
+        source: 'USD',
+        dest: 'KES',
+      });
+    });
+
+    it('requires receiver phone', () => {
+      const phoneField = adapter.config.requiredFields.find(
+        f => f.path === 'receiver.phone'
+      );
+      expect(phoneField).toBeDefined();
     });
   });
 
   describe('getQuote()', () => {
     it('returns quote with M-Pesa fees', async () => {
       const quote = await adapter.getQuote({
+        networkId: 'mpesa-kenya',
         sourceCurrency: 'USD',
         destCurrency: 'KES',
-        amount: 100,
-        amountType: 'SOURCE',
+        sourceAmount: 100,
+        mode: 'SOURCE',
       });
 
       expect(quote.fee).toBeGreaterThan(0);
       expect(quote.destCurrency).toBe('KES');
     });
 
-    it('converts USD to KES', async () => {
+    it('converts USD to KES with proper rate', async () => {
       const quote = await adapter.getQuote({
+        networkId: 'mpesa-kenya',
         sourceCurrency: 'USD',
         destCurrency: 'KES',
-        amount: 100,
-        amountType: 'SOURCE',
+        sourceAmount: 100,
+        mode: 'SOURCE',
       });
 
-      expect(quote.fxRate).toBeGreaterThan(100); // KES is weaker than USD
+      expect(quote.fxRate).toBeGreaterThan(100);
       expect(quote.destAmount).toBeGreaterThan(quote.sourceAmount);
+    });
+
+    it('includes provider metadata', async () => {
+      const quote = await adapter.getQuote({
+        networkId: 'mpesa-kenya',
+        sourceCurrency: 'USD',
+        destCurrency: 'KES',
+        sourceAmount: 100,
+        mode: 'SOURCE',
+      });
+
+      expect(quote.networkMetadata).toHaveProperty('provider');
+      expect(quote.networkMetadata).toHaveProperty('corridor');
     });
   });
 
   describe('initiatePayment()', () => {
-    it('simulates STK push initiation', async () => {
+    it('returns PENDING status for valid Kenyan phone', async () => {
       const result = await adapter.initiatePayment({
-        paymentId: 'pay_123',
-        amount: 100,
-        currency: 'KES',
-        phone: '+254700123456',
+        quoteId: 'quote_123',
+        networkId: 'mpesa-kenya',
+        externalId: 'pay_123',
+        sourceAmount: 100,
+        sourceCurrency: 'USD',
+        destAmount: 15000,
+        destCurrency: 'KES',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: {
+          firstName: 'Jane',
+          lastName: 'Smith',
+          phone: '+254700123456',
+        },
+        correlationId: 'corr_123',
       });
 
-      expect(result.status).toBe('PENDING_USER_ACTION');
+      expect(result.status).toBe('PENDING');
+      expect(result).toHaveProperty('networkPaymentId');
     });
 
-    it('returns pending status', async () => {
+    it('fails with invalid phone number', async () => {
       const result = await adapter.initiatePayment({
-        paymentId: 'pay_123',
-        amount: 100,
-        currency: 'KES',
-        phone: '+254700123456',
+        quoteId: 'quote_123',
+        networkId: 'mpesa-kenya',
+        externalId: 'pay_123',
+        sourceAmount: 100,
+        sourceCurrency: 'USD',
+        destAmount: 15000,
+        destCurrency: 'KES',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: {
+          firstName: 'Jane',
+          lastName: 'Smith',
+          phone: '+1234567890', // Not Kenyan
+        },
+        correlationId: 'corr_123',
       });
 
-      expect(result).toHaveProperty('networkPaymentId');
+      expect(result.status).toBe('FAILED');
+    });
+
+    it('includes conversation IDs in metadata', async () => {
+      const result = await adapter.initiatePayment({
+        quoteId: 'quote_123',
+        networkId: 'mpesa-kenya',
+        externalId: 'pay_123',
+        sourceAmount: 100,
+        sourceCurrency: 'USD',
+        destAmount: 15000,
+        destCurrency: 'KES',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: {
+          firstName: 'Jane',
+          lastName: 'Smith',
+          phone: '+254700123456',
+        },
+        correlationId: 'corr_123',
+      });
+
+      expect(result.networkMetadata).toHaveProperty('conversationId');
+      expect(result.networkMetadata).toHaveProperty('originatorConversationId');
     });
   });
 
-  describe('simulateCallback()', () => {
-    it('simulates successful callback after delay', async () => {
-      const callbackPromise = adapter.waitForCallback('pay_123');
-
-      // Trigger the simulation
-      adapter.simulateUserConfirmation('pay_123', true);
-
-      const result = await callbackPromise;
-      expect(result.status).toBe('CONFIRMED');
-    });
-
-    it('simulates timeout after 60 seconds', async () => {
-      // This test would use a shorter timeout for testing
-      const shortAdapter = new MPesaAdapter({
-        simulatedDelayMs: 50,
-        timeoutMs: 100,
-        failureRate: 0,
+  describe('getPaymentStatus()', () => {
+    it('tracks payment status', async () => {
+      const initResult = await adapter.initiatePayment({
+        quoteId: 'quote_123',
+        networkId: 'mpesa-kenya',
+        externalId: 'pay_123',
+        sourceAmount: 100,
+        sourceCurrency: 'USD',
+        destAmount: 15000,
+        destCurrency: 'KES',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: {
+          firstName: 'Jane',
+          lastName: 'Smith',
+          phone: '+254700123456',
+        },
+        correlationId: 'corr_123',
       });
 
-      const result = await shortAdapter.waitForCallback('pay_timeout');
-      expect(result.status).toBe('FAILED');
-      expect(result.error).toContain('timeout');
-    }, 10000);
+      const status = await adapter.getPaymentStatus(initResult.networkPaymentId);
+      expect(['PENDING', 'COMPLETED', 'FAILED']).toContain(status.status);
+    });
   });
 });
 
-describe('GCashAdapter', () => {
-  let adapter: GCashAdapter;
+describe('GCashMockAdapter', () => {
+  let adapter: GCashMockAdapter;
 
   beforeEach(() => {
-    adapter = new GCashAdapter({
-      simulatedDelayMs: 100,
-      failureRate: 0,
+    adapter = new GCashMockAdapter();
+  });
+
+  describe('config', () => {
+    it('has correct network type', () => {
+      expect(adapter.config.type).toBe('mobile_wallet');
+    });
+
+    it('supports USD to PHP', () => {
+      expect(adapter.config.supportedCurrencies).toContainEqual({
+        source: 'USD',
+        dest: 'PHP',
+      });
     });
   });
 
-  it('returns quote with GCash fees', async () => {
-    const quote = await adapter.getQuote({
-      sourceCurrency: 'USD',
-      destCurrency: 'PHP',
-      amount: 100,
-      amountType: 'SOURCE',
+  describe('getQuote()', () => {
+    it('returns quote with GCash fees', async () => {
+      const quote = await adapter.getQuote({
+        networkId: 'gcash-ph',
+        sourceCurrency: 'USD',
+        destCurrency: 'PHP',
+        sourceAmount: 100,
+        mode: 'SOURCE',
+      });
+
+      expect(quote.fee).toBeGreaterThan(0);
+      expect(quote.destCurrency).toBe('PHP');
     });
 
-    expect(quote.fee).toBeGreaterThan(0);
-    expect(quote.destCurrency).toBe('PHP');
+    it('converts USD to PHP', async () => {
+      const quote = await adapter.getQuote({
+        networkId: 'gcash-ph',
+        sourceCurrency: 'USD',
+        destCurrency: 'PHP',
+        sourceAmount: 100,
+        mode: 'SOURCE',
+      });
+
+      expect(quote.fxRate).toBeGreaterThan(50);
+    });
   });
 
-  it('converts USD to PHP', async () => {
-    const quote = await adapter.getQuote({
-      sourceCurrency: 'USD',
-      destCurrency: 'PHP',
-      amount: 100,
-      amountType: 'SOURCE',
-    });
+  describe('initiatePayment()', () => {
+    it('returns PENDING status for valid Philippine phone', async () => {
+      const result = await adapter.initiatePayment({
+        quoteId: 'quote_123',
+        networkId: 'gcash-ph',
+        externalId: 'pay_123',
+        sourceAmount: 100,
+        sourceCurrency: 'USD',
+        destAmount: 5500,
+        destCurrency: 'PHP',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: {
+          firstName: 'Maria',
+          lastName: 'Santos',
+          phone: '+639171234567',
+        },
+        correlationId: 'corr_123',
+      });
 
-    expect(quote.fxRate).toBeGreaterThan(50); // PHP is weaker than USD
+      expect(result.status).toBe('PENDING');
+    });
   });
 });

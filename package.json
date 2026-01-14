@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "dev": "npm run dev --workspaces --if-present",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test": "jest",
     "test:unit": "npm test -- --testPathPattern=tests/unit",
     "test:integration": "npm test -- --testPathPattern=tests/integration",
     "test:e2e": "npm test -- --testPathPattern=tests/e2e",

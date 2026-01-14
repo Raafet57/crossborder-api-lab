@@ -1,131 +1,143 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { PaymentStateMachine, PaymentStatus, NetworkType } from '@crossborder/core';
+import { PaymentStateMachine, InvalidTransitionError } from '@crossborder/core';
 
 describe('PaymentStateMachine', () => {
   let machine: PaymentStateMachine;
 
   beforeEach(() => {
-    machine = new PaymentStateMachine(NetworkType.STABLECOIN);
+    machine = new PaymentStateMachine('CREATED');
   });
 
-  describe('initial state', () => {
-    it('starts in CREATED state', () => {
-      expect(machine.currentState).toBe(PaymentStatus.CREATED);
+  describe('initialization', () => {
+    it('starts in CREATED state by default', () => {
+      const defaultMachine = new PaymentStateMachine();
+      expect(defaultMachine.getState()).toBe('CREATED');
+    });
+
+    it('can start in custom state', () => {
+      const customMachine = new PaymentStateMachine('SUBMITTED');
+      expect(customMachine.getState()).toBe('SUBMITTED');
     });
   });
 
-  describe('common transitions', () => {
-    it('transitions CREATED -> QUOTE_LOCKED', () => {
-      expect(machine.canTransition(PaymentStatus.QUOTE_LOCKED)).toBe(true);
-      machine.transition(PaymentStatus.QUOTE_LOCKED);
-      expect(machine.currentState).toBe(PaymentStatus.QUOTE_LOCKED);
-    });
-
-    it('transitions QUOTE_LOCKED -> COMPLIANCE_CHECK', () => {
-      machine.transition(PaymentStatus.QUOTE_LOCKED);
-      expect(machine.canTransition(PaymentStatus.COMPLIANCE_CHECK)).toBe(true);
-      machine.transition(PaymentStatus.COMPLIANCE_CHECK);
-      expect(machine.currentState).toBe(PaymentStatus.COMPLIANCE_CHECK);
-    });
-
-    it('can transition to FAILED from any non-terminal state', () => {
-      expect(machine.canTransition(PaymentStatus.FAILED)).toBe(true);
-      machine.transition(PaymentStatus.QUOTE_LOCKED);
-      expect(machine.canTransition(PaymentStatus.FAILED)).toBe(true);
-    });
-
-    it('can transition to CANCELLED from early states', () => {
-      expect(machine.canTransition(PaymentStatus.CANCELLED)).toBe(true);
-      machine.transition(PaymentStatus.QUOTE_LOCKED);
-      expect(machine.canTransition(PaymentStatus.CANCELLED)).toBe(true);
+  describe('canTransition()', () => {
+    it('allows valid transitions from CREATED', () => {
+      expect(machine.canTransition('LOCK_QUOTE')).toBe(true);
+      expect(machine.canTransition('CANCEL')).toBe(true);
     });
 
     it('rejects invalid transitions', () => {
-      expect(machine.canTransition(PaymentStatus.COMPLETED)).toBe(false);
-      expect(() => machine.transition(PaymentStatus.COMPLETED)).toThrow();
+      expect(machine.canTransition('COMPLETE')).toBe(false);
+      expect(machine.canTransition('SUBMIT')).toBe(false);
     });
   });
 
-  describe('stablecoin network', () => {
-    beforeEach(() => {
-      machine = new PaymentStateMachine(NetworkType.STABLECOIN);
-      machine.transition(PaymentStatus.QUOTE_LOCKED);
-      machine.transition(PaymentStatus.COMPLIANCE_CHECK);
+  describe('transition()', () => {
+    it('transitions to QUOTE_LOCKED', () => {
+      const newState = machine.transition('LOCK_QUOTE');
+      expect(newState).toBe('QUOTE_LOCKED');
+      expect(machine.getState()).toBe('QUOTE_LOCKED');
     });
 
-    it('transitions COMPLIANCE_CHECK -> SUBMITTED', () => {
-      expect(machine.canTransition(PaymentStatus.SUBMITTED)).toBe(true);
-      machine.transition(PaymentStatus.SUBMITTED);
-      expect(machine.currentState).toBe(PaymentStatus.SUBMITTED);
+    it('transitions through full happy path', () => {
+      machine.transition('LOCK_QUOTE');
+      expect(machine.getState()).toBe('QUOTE_LOCKED');
+
+      machine.transition('START_COMPLIANCE');
+      expect(machine.getState()).toBe('COMPLIANCE_CHECK');
+
+      machine.transition('COMPLIANCE_PASSED');
+      expect(machine.getState()).toBe('PENDING_NETWORK');
+
+      machine.transition('SUBMIT');
+      expect(machine.getState()).toBe('SUBMITTED');
+
+      machine.transition('CONFIRM');
+      expect(machine.getState()).toBe('CONFIRMED');
+
+      machine.transition('COMPLETE');
+      expect(machine.getState()).toBe('COMPLETED');
     });
 
-    it('transitions SUBMITTED -> CONFIRMED', () => {
-      machine.transition(PaymentStatus.SUBMITTED);
-      expect(machine.canTransition(PaymentStatus.CONFIRMED)).toBe(true);
-      machine.transition(PaymentStatus.CONFIRMED);
-      expect(machine.currentState).toBe(PaymentStatus.CONFIRMED);
+    it('throws InvalidTransitionError for invalid transitions', () => {
+      expect(() => machine.transition('COMPLETE')).toThrow(InvalidTransitionError);
     });
 
-    it('transitions CONFIRMED -> COMPLETED', () => {
-      machine.transition(PaymentStatus.SUBMITTED);
-      machine.transition(PaymentStatus.CONFIRMED);
-      expect(machine.canTransition(PaymentStatus.COMPLETED)).toBe(true);
-      machine.transition(PaymentStatus.COMPLETED);
-      expect(machine.currentState).toBe(PaymentStatus.COMPLETED);
-    });
-  });
-
-  describe('card network', () => {
-    beforeEach(() => {
-      machine = new PaymentStateMachine(NetworkType.CARD);
-      machine.transition(PaymentStatus.QUOTE_LOCKED);
-      machine.transition(PaymentStatus.COMPLIANCE_CHECK);
-    });
-
-    it('transitions COMPLIANCE_CHECK -> PROCESSING', () => {
-      expect(machine.canTransition(PaymentStatus.PROCESSING)).toBe(true);
-      machine.transition(PaymentStatus.PROCESSING);
-      expect(machine.currentState).toBe(PaymentStatus.PROCESSING);
-    });
-
-    it('transitions PROCESSING -> REQUIRES_ACTION for 3DS', () => {
-      machine.transition(PaymentStatus.PROCESSING);
-      expect(machine.canTransition(PaymentStatus.REQUIRES_ACTION)).toBe(true);
-    });
-
-    it('transitions through CONFIRMED -> SETTLED -> COMPLETED', () => {
-      machine.transition(PaymentStatus.PROCESSING);
-      machine.transition(PaymentStatus.CONFIRMED);
-      expect(machine.canTransition(PaymentStatus.SETTLED)).toBe(true);
-      machine.transition(PaymentStatus.SETTLED);
-      expect(machine.canTransition(PaymentStatus.COMPLETED)).toBe(true);
+    it('includes from state and trigger in error', () => {
+      try {
+        machine.transition('INVALID');
+      } catch (error) {
+        expect(error).toBeInstanceOf(InvalidTransitionError);
+        expect((error as InvalidTransitionError).from).toBe('CREATED');
+        expect((error as InvalidTransitionError).trigger).toBe('INVALID');
+      }
     });
   });
 
-  describe('mobile wallet network', () => {
-    beforeEach(() => {
-      machine = new PaymentStateMachine(NetworkType.MOBILE_WALLET);
-      machine.transition(PaymentStatus.QUOTE_LOCKED);
-      machine.transition(PaymentStatus.COMPLIANCE_CHECK);
+  describe('getHistory()', () => {
+    it('records transition history', () => {
+      machine.transition('LOCK_QUOTE');
+      machine.transition('START_COMPLIANCE');
+
+      const history = machine.getHistory();
+      expect(history).toHaveLength(2);
+
+      expect(history[0]).toMatchObject({
+        from: 'CREATED',
+        to: 'QUOTE_LOCKED',
+        trigger: 'LOCK_QUOTE',
+      });
+
+      expect(history[1]).toMatchObject({
+        from: 'QUOTE_LOCKED',
+        to: 'COMPLIANCE_CHECK',
+        trigger: 'START_COMPLIANCE',
+      });
     });
 
-    it('transitions to PENDING_USER_ACTION', () => {
-      machine.transition(PaymentStatus.SUBMITTED);
-      expect(machine.canTransition(PaymentStatus.PENDING_USER_ACTION)).toBe(true);
+    it('includes timestamps in history', () => {
+      machine.transition('LOCK_QUOTE');
+      const history = machine.getHistory();
+
+      expect(history[0]).toHaveProperty('timestamp');
+      expect(new Date(history[0].timestamp)).toBeInstanceOf(Date);
     });
   });
 
-  describe('getNextStates()', () => {
-    it('returns valid next states for current state', () => {
-      const nextStates = machine.getNextStates();
-      expect(nextStates).toContain(PaymentStatus.QUOTE_LOCKED);
-      expect(nextStates).toContain(PaymentStatus.FAILED);
-      expect(nextStates).toContain(PaymentStatus.CANCELLED);
+  describe('cancellation', () => {
+    it('can cancel from CREATED', () => {
+      machine.transition('CANCEL');
+      expect(machine.getState()).toBe('CANCELLED');
     });
 
-    it('returns empty array for terminal states', () => {
-      machine.transition(PaymentStatus.FAILED);
-      expect(machine.getNextStates()).toEqual([]);
+    it('can cancel from QUOTE_LOCKED', () => {
+      machine.transition('LOCK_QUOTE');
+      machine.transition('CANCEL');
+      expect(machine.getState()).toBe('CANCELLED');
+    });
+
+    it('cannot transition from CANCELLED', () => {
+      machine.transition('CANCEL');
+      expect(machine.canTransition('LOCK_QUOTE')).toBe(false);
+    });
+  });
+
+  describe('failure', () => {
+    it('can fail from SUBMITTED', () => {
+      machine.transition('LOCK_QUOTE');
+      machine.transition('START_COMPLIANCE');
+      machine.transition('COMPLIANCE_PASSED');
+      machine.transition('SUBMIT');
+      machine.transition('FAIL');
+      expect(machine.getState()).toBe('FAILED');
+    });
+
+    it('cannot transition from FAILED', () => {
+      machine.transition('LOCK_QUOTE');
+      machine.transition('START_COMPLIANCE');
+      machine.transition('COMPLIANCE_FAILED');
+      expect(machine.getState()).toBe('FAILED');
+      expect(machine.canTransition('SUBMIT')).toBe(false);
     });
   });
 });

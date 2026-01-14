@@ -1,101 +1,142 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { RWATBondsAdapter } from '@crossborder/network-adapters';
+import { RWAMockAdapter } from '@crossborder/network-adapters';
 
-describe('RWATBondsAdapter', () => {
-  let adapter: RWATBondsAdapter;
+describe('RWAMockAdapter', () => {
+  let adapter: RWAMockAdapter;
 
   beforeEach(() => {
-    adapter = new RWATBondsAdapter({
-      simulatedSettlementMs: 100, // Fast for testing
+    adapter = new RWAMockAdapter();
+  });
+
+  describe('config', () => {
+    it('has correct network type', () => {
+      expect(adapter.config.type).toBe('tokenized_asset');
+    });
+
+    it('supports USD to TBOND', () => {
+      expect(adapter.config.supportedCurrencies).toContainEqual({
+        source: 'USD',
+        dest: 'TBOND',
+      });
+    });
+
+    it('has higher minimum limits for institutional', () => {
+      expect(adapter.config.limits.min).toBeGreaterThanOrEqual(1000);
     });
   });
 
   describe('getQuote()', () => {
     it('returns quote for treasury bonds', async () => {
       const quote = await adapter.getQuote({
+        networkId: 'rwa-treasury',
         sourceCurrency: 'USD',
         destCurrency: 'TBOND',
-        amount: 100000,
-        amountType: 'SOURCE',
+        sourceAmount: 100000,
+        mode: 'SOURCE',
       });
 
       expect(quote.destCurrency).toBe('TBOND');
       expect(quote.sourceAmount).toBe(100000);
     });
 
-    it('applies institutional pricing', async () => {
+    it('applies management fee', async () => {
       const quote = await adapter.getQuote({
+        networkId: 'rwa-treasury',
         sourceCurrency: 'USD',
         destCurrency: 'TBOND',
-        amount: 100000,
-        amountType: 'SOURCE',
+        sourceAmount: 100000,
+        mode: 'SOURCE',
       });
 
-      // Institutional fees should be lower
-      expect(quote.fee).toBeLessThan(quote.sourceAmount * 0.01);
+      expect(quote.fee).toBeGreaterThan(0);
+      expect(quote.destAmount).toBeLessThan(quote.sourceAmount);
+    });
+
+    it('includes settlement metadata', async () => {
+      const quote = await adapter.getQuote({
+        networkId: 'rwa-treasury',
+        sourceCurrency: 'USD',
+        destCurrency: 'TBOND',
+        sourceAmount: 100000,
+        mode: 'SOURCE',
+      });
+
+      expect(quote.networkMetadata).toHaveProperty('settlementType');
+      expect(quote.networkMetadata).toHaveProperty('custodian');
     });
   });
 
   describe('initiatePayment()', () => {
-    it('queues payment for matching', async () => {
+    it('returns PENDING status when queued', async () => {
       const result = await adapter.initiatePayment({
-        paymentId: 'pay_123',
-        amount: 100000,
-        currency: 'TBOND',
+        quoteId: 'quote_123',
+        networkId: 'rwa-treasury',
+        externalId: 'pay_123',
+        sourceAmount: 100000,
+        sourceCurrency: 'USD',
+        destAmount: 99900,
+        destCurrency: 'TBOND',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: { walletAddress: '0xCustodyWallet' },
+        correlationId: 'corr_123',
       });
 
-      expect(result.status).toBe('QUEUED');
+      expect(result.status).toBe('PENDING');
+      expect(result).toHaveProperty('networkPaymentId');
     });
 
-    it('returns QUEUED status', async () => {
+    it('fails without wallet address', async () => {
       const result = await adapter.initiatePayment({
-        paymentId: 'pay_123',
-        amount: 100000,
-        currency: 'TBOND',
+        quoteId: 'quote_123',
+        networkId: 'rwa-treasury',
+        externalId: 'pay_123',
+        sourceAmount: 100000,
+        sourceCurrency: 'USD',
+        destAmount: 99900,
+        destCurrency: 'TBOND',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: {},
+        correlationId: 'corr_123',
       });
 
-      expect(result).toHaveProperty('networkPaymentId');
+      expect(result.status).toBe('FAILED');
+    });
+
+    it('includes settlement date in metadata', async () => {
+      const result = await adapter.initiatePayment({
+        quoteId: 'quote_123',
+        networkId: 'rwa-treasury',
+        externalId: 'pay_123',
+        sourceAmount: 100000,
+        sourceCurrency: 'USD',
+        destAmount: 99900,
+        destCurrency: 'TBOND',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: { walletAddress: '0xCustodyWallet' },
+        correlationId: 'corr_123',
+      });
+
+      expect(result.networkMetadata).toHaveProperty('settlementDate');
     });
   });
 
-  describe('settlement simulation', () => {
-    it('transitions through MATCHING state', async () => {
-      await adapter.initiatePayment({
-        paymentId: 'pay_123',
-        amount: 100000,
-        currency: 'TBOND',
+  describe('getPaymentStatus()', () => {
+    it('tracks payment status', async () => {
+      const initResult = await adapter.initiatePayment({
+        quoteId: 'quote_123',
+        networkId: 'rwa-treasury',
+        externalId: 'pay_123',
+        sourceAmount: 100000,
+        sourceCurrency: 'USD',
+        destAmount: 99900,
+        destCurrency: 'TBOND',
+        sender: { firstName: 'John', lastName: 'Doe' },
+        receiver: { walletAddress: '0xCustodyWallet' },
+        correlationId: 'corr_123',
       });
 
-      const status1 = await adapter.getPaymentStatus('pay_123');
-      expect(['QUEUED', 'MATCHING']).toContain(status1.status);
-    });
-
-    it('transitions through PENDING_CUSTODY state', async () => {
-      await adapter.initiatePayment({
-        paymentId: 'pay_123',
-        amount: 100000,
-        currency: 'TBOND',
-      });
-
-      // Wait for settlement simulation
-      await new Promise(resolve => setTimeout(resolve, 150));
-
-      const status = await adapter.getPaymentStatus('pay_123');
-      expect(['MATCHING', 'PENDING_CUSTODY', 'SETTLED', 'COMPLETED']).toContain(status.status);
-    });
-
-    it('completes at T+1 simulation', async () => {
-      await adapter.initiatePayment({
-        paymentId: 'pay_123',
-        amount: 100000,
-        currency: 'TBOND',
-      });
-
-      // Wait for full settlement
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const status = await adapter.getPaymentStatus('pay_123');
-      expect(status.status).toBe('COMPLETED');
+      const status = await adapter.getPaymentStatus(initResult.networkPaymentId);
+      expect(['PENDING', 'COMPLETED']).toContain(status.status);
     });
   });
 });
