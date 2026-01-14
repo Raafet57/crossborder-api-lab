@@ -33,6 +33,7 @@ export class Orchestrator {
     const stateMachine = new PaymentStateMachine('CREATED');
     this.stateMachines.set(paymentId, stateMachine);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const payment = this.paymentStore.create({
       id: paymentId,
       externalId: request.externalId,

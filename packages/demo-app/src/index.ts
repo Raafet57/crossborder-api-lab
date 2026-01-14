@@ -18,6 +18,7 @@ async function main(): Promise<void> {
 
   display.printHeader();
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const mode = await select({
       message: 'Select mode:',

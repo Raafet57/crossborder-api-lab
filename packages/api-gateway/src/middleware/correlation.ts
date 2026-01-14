@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { generateCorrelationId, isValidCorrelationId } from '@crossborder/core';
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       correlationId: string;

@@ -4,6 +4,7 @@ import { AppError, ErrorCode } from '../types/errors';
 import { AuthContext } from '../types/api';
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       auth: AuthContext;
